@@ -53,7 +53,7 @@ object DataFramesBasics extends App {
 
   //  create rows by hand
   val myRow = Row(
-    Row("chevrolet chevelle malibu", 18.0, 8L, 307.0, 130L, 3504L, 12.0, "1970-01-01", "USA"),
+    ("chevrolet chevelle malibu", 18.0, 8L, 307.0, 130L, 3504L, 12.0, "1970-01-01", "USA"),
   )
 
   //  Create DF from tuples
@@ -82,6 +82,43 @@ object DataFramesBasics extends App {
 
   manualCarsDf.printSchema()
   manualCarsDFWithImplicits.printSchema()
+
+  /** EXERCISE
+    * 1) Create a manual DF describing smartphones
+    * -make
+    * -model
+    * -screen dimensions
+    * -camera mp
+    * 2) Read another file from data/ e.g. movies.json
+    * -printSchema
+    * -count rows, count()
+    */
+
+  val phonesSchema = StructType(Array(
+    StructField("make", StringType),
+    StructField("model", StringType),
+    StructField("screenDimensions", StringType),
+    StructField("cameraMP", IntegerType),
+  ))
+
+  val phones = Seq(
+    ("Apple", "iPhone 14", "6.5 in", 12),
+    ("Samsung", "S 22", "6.6 in", 18),
+    ("Samsung", "Fold 2", "7.0 in", 20),
+  )
+
+  //  val phonesDF = spark.createDataFrame(phones)
+  val phonesDF = phones.toDF("make", "model", "screenDimensions", "cameraMP")
+  phonesDF.show()
+  phonesDF.printSchema()
+
+  val moviesDF = spark.read
+    .format("json")
+    .option("inferSchema", "true")
+    .load("src/main/resources/data/movies.json")
+
+  moviesDF.printSchema()
+  println(s"There are: ${moviesDF.count()} movies in the DF")
 
 
 }
