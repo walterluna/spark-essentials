@@ -93,4 +93,37 @@ object ColumnsAndExpressions extends App {
   val allCarsDF = carsDF.union(moreCarsDF) //works if its the same schema
   val allCountriesDF = carsDF.select("Origin").distinct()
   allCountriesDF.show()
+
+
+  /* EXERCISES
+  1. read movies DF and select any 2 cols
+  2. create a new col with the sum of profit of the movie
+  3. select all comedy movies with imbd rating > 6 &
+
+  use as many versions as possible for each solution
+     */
+
+  val moviesDF = spark.read
+    .option("inferSchema", "true")
+    .json("src/main/resources/data/movies.json")
+
+  //  1. read movies DF and select any 2 cols
+  moviesDF.show()
+  moviesDF.select("Distributor", "Title")
+  moviesDF.select(
+    col("Distributor"),
+    col("Title"),
+  )
+  moviesDF.select(
+    moviesDF.col("Distributor"),
+    moviesDF.col("Title"),
+  )
+
+  //  2. create a new col with the sum of profit of the movie
+  moviesDF.selectExpr("Title", "US_Gross + Worldwide_Gross").show()
+
+
+  //  3. select all comedy movies with imbd rating > 6 &
+  moviesDF.filter("Major_Genre1 = 'Comedy' AND IMDB_Rating > 6").show()
+
 }
