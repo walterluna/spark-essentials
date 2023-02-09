@@ -1,6 +1,7 @@
 package part7bigdata
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Column, SparkSession}
+import org.apache.spark.sql.functions._
 
 object TaxiApplication extends App {
 
@@ -34,5 +35,76 @@ object TaxiApplication extends App {
     * 7. How is the payment type evolving with time?
     * 8. Can we explore a ride sharing opportunity by grouping together short trips?
     */
+
+  // 1
+  val pickupsByTaxiZoneDF = taxiDF.groupBy("PULocationID")
+    .agg(count("*").as("totalTrips"))
+    .join(taxiZonesDF, col("PULocationID") === col("LocationID"))
+    .drop("LocationID", "service_zone")
+    .orderBy(col("totalTrips").desc_nulls_last)
+
+  // 1b - group by borough
+  val pickupsByBoroughDF = pickupsByTaxiZoneDF.groupBy(col("Borough"))
+    .agg(sum(col("totalTrips")).as("totalTrips"))
+    .orderBy(col("totalTrips").desc_nulls_last)
+
+  // 2
+  val pickupsByHourDF = taxiDF
+    .withColumn("hour_of_day", hour(col("tpep_pickup_datetime")))
+    .groupBy("hour_of_day")
+    .agg(count("*").as("totalTrips"))
+    .orderBy(col("totalTrips").desc_nulls_last)
+
+  // 3
+  val tripDistanceDF = taxiDF.select(col("trip_distance").as("distance"))
+  val longDistanceThreshold = 30
+  val tripDistanceStatsDF = tripDistanceDF.select(
+    count("*").as("count"),
+    lit(longDistanceThreshold).as("threshold"),
+    mean("distance").as("mean"),
+    stddev("distance").as("stddev"),
+    min("distance").as("min"),
+    max("distance").as("max")
+  )
+
+  val tripsWithLengthDF = taxiDF.withColumn("isLong", col("trip_distance") >= longDistanceThreshold)
+  val tripsByLengthDF = tripsWithLengthDF.groupBy("isLong").count()
+
+  // 4
+  val pickupsByHourByLengthDF = tripsWithLengthDF
+    .withColumn("hour_of_day", hour(col("tpep_pickup_datetime")))
+    .groupBy("hour_of_day", "isLong")
+    .agg(count("*").as("totalTrips"))
+    .orderBy(col("totalTrips").desc_nulls_last)
+
+  // 5
+  def pickupDropoffPopularity(predicate: Column) = tripsWithLengthDF
+    .where(predicate)
+    .groupBy("PULocationID", "DOLocationID").agg(count("*").as("totalTrips"))
+    .join(taxiZonesDF, col("PULocationID") === col("LocationID"))
+    .withColumnRenamed("Zone", "Pickup_Zone")
+    .drop("LocationID", "Borough", "service_zone")
+    .join(taxiZonesDF, col("DOLocationID") === col("LocationID"))
+    .withColumnRenamed("Zone", "Dropoff_Zone")
+    .drop("LocationID", "Borough", "service_zone")
+    .drop("PULocationID", "DOLocationID")
+    .orderBy(col("totalTrips").desc_nulls_last)
+
+  // 6
+  val ratecodeDistributionDF = taxiDF
+    .groupBy(col("RatecodeID")).agg(count("*").as("totalTrips"))
+    .orderBy(col("totalTrips").desc_nulls_last)
+
+  // 7
+  val ratecodeEvolution = taxiDF
+    .groupBy(to_date(col("tpep_pickup_datetime")).as("pickup_day"), col("RatecodeID"))
+    .agg(count("*").as("totalTrips"))
+    .orderBy(col("pickup_day"))
+
+  // 8
+  val passengerCountDF = taxiDF.where(col("passenger_count") < 3).select(count("*"))
+  passengerCountDF.show()
+  taxiDF.select(count("*")).show()
+
 
 }
